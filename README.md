@@ -1,4 +1,4 @@
-# 🤖 MTaiChatbot v3.1
+# 🤖 MTaiChatbot v1.0
 
 A modern, full-stack AI assistant developed by **Masud Talukdar**. Built to showcase the power of **Gemini 3.1 Flash-Lite** with real-time web intelligence.
 
