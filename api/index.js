@@ -7,32 +7,31 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Initialize AI outside the handler for better performance
-const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY);
+// Initialize the client once outside the handler
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+// This route handles /api/chat as defined in your vercel.json
 app.post(['/api/chat', '/chat', '/'], async (req, res) => {
     const { messages } = req.body;
     
-    // Crucial for Vercel Streaming
+    // Set streaming headers
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
     try {
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash", // Use this stable version first to test
-        });
-
-        // Simple streaming logic
-        const result = await model.generateContentStream({
+        // Use the modern 2.0+ streaming syntax
+        const result = await ai.models.generateContentStream({
+            model: "gemini-2.0-flash", // Most stable for March 2026
             contents: messages.map(m => ({
                 role: m.role === 'user' ? 'user' : 'model',
                 parts: [{ text: m.content }]
             }))
         });
 
-        for await (const chunk of result.stream) {
-            const chunkText = chunk.text();
+        // Iterate through the stream chunks
+        for await (const chunk of result) {
+            const chunkText = chunk.text; // Note: Use .text (property), not .text() (method) in new SDK
             if (chunkText) {
                 res.write(`data: ${JSON.stringify({ content: chunkText })}\n\n`);
             }
@@ -42,10 +41,11 @@ app.post(['/api/chat', '/chat', '/'], async (req, res) => {
         res.end();
 
     } catch (error) {
-        console.error("Vercel Runtime Error:", error);
-        res.write(`data: ${JSON.stringify({ content: "⚠️ Server Error: " + error.message })}\n\n`);
+        console.error("Gemini Execution Error:", error);
+        res.write(`data: ${JSON.stringify({ content: "⚠️ Error: " + error.message })}\n\n`);
         res.end();
     }
 });
 
+// Vercel requires the app to be the default export
 export default app;
