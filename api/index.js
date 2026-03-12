@@ -51,6 +51,4 @@ app.post(['/api/chat', '/chat'], async (req, res) => {
         res.end();
     }
 });
-
-// IMPORTANT: Use export default instead of module.exports
 export default app;
