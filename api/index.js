@@ -1,12 +1,13 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
+import 'dotenv/config'; // Modern way to load .env
+import express from 'express';
+import cors from 'cors';
+
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// Dynamic import for ES Module compatibility in CommonJS
+// Dynamic import for Gemini
 async function getGeminiClient() {
     const { GoogleGenAI } = await import("@google/genai");
     return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -22,7 +23,6 @@ app.post(['/api/chat', '/chat'], async (req, res) => {
     try {
         const ai = await getGeminiClient();
 
-        // SDK FIX: Iterate directly over the response object, not response.stream
         const response = await ai.models.generateContentStream({
             model: "gemini-3.1-flash-lite-preview",
             contents: messages.map(m => ({
@@ -30,14 +30,12 @@ app.post(['/api/chat', '/chat'], async (req, res) => {
                 parts: [{ text: m.content }]
             })),
             config: {
-                tools: [{ googleSearch: {} }], // Enables 2026 web access
+                tools: [{ googleSearch: {} }],
                 systemInstruction: "You are MTaiChatbot. Use Google Search to provide current info."
             }
         });
 
-        // FIXED LOOP: Iterate over 'response' directly
         for await (const chunk of response) {
-            // New SDK uses chunk.text instead of chunk.text()
             const chunkText = chunk.text; 
             if (chunkText) {
                 res.write(`data: ${JSON.stringify({ content: chunkText })}\n\n`);
@@ -54,6 +52,5 @@ app.post(['/api/chat', '/chat'], async (req, res) => {
     }
 });
 
-module.exports = app;
-
-
+// IMPORTANT: Use export default instead of module.exports
+export default app;
