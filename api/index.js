@@ -1,42 +1,38 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import { GoogleGenAI } from "@google/genai";
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 
-// Dynamic import for Gemini (already correct in your code)
-async function getGeminiClient() {
-    const { GoogleGenAI } = await import("@google/genai");
-    return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-}
+// Initialize AI outside the handler for better performance
+const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY);
 
-app.post(['/api/chat', '/chat'], async (req, res) => {
+app.post(['/api/chat', '/chat', '/'], async (req, res) => {
     const { messages } = req.body;
     
+    // Crucial for Vercel Streaming
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
 
     try {
-        const ai = await getGeminiClient();
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash", // Use this stable version first to test
+        });
 
-        const response = await ai.models.generateContentStream({
-            model: "gemini-3.1-flash-lite-preview",
+        // Simple streaming logic
+        const result = await model.generateContentStream({
             contents: messages.map(m => ({
                 role: m.role === 'user' ? 'user' : 'model',
                 parts: [{ text: m.content }]
-            })),
-            config: {
-                tools: [{ googleSearch: {} }],
-                systemInstruction: "You are MTaiChatbot. Use Google Search to provide current info."
-            }
+            }))
         });
 
-        for await (const chunk of response) {
-            const chunkText = chunk.text; 
+        for await (const chunk of result.stream) {
+            const chunkText = chunk.text();
             if (chunkText) {
                 res.write(`data: ${JSON.stringify({ content: chunkText })}\n\n`);
             }
@@ -46,9 +42,10 @@ app.post(['/api/chat', '/chat'], async (req, res) => {
         res.end();
 
     } catch (error) {
-        console.error("Gemini 3.1 Error:", error);
-        res.write(`data: ${JSON.stringify({ content: "⚠️ Error: " + error.message })}\n\n`);
+        console.error("Vercel Runtime Error:", error);
+        res.write(`data: ${JSON.stringify({ content: "⚠️ Server Error: " + error.message })}\n\n`);
         res.end();
     }
 });
+
 export default app;
