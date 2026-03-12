@@ -1,4 +1,4 @@
-import 'dotenv/config'; // Modern way to load .env
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 
@@ -7,7 +7,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Dynamic import for Gemini
+// Dynamic import for Gemini (already correct in your code)
 async function getGeminiClient() {
     const { GoogleGenAI } = await import("@google/genai");
     return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
